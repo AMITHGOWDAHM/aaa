@@ -242,8 +242,17 @@ const DatasetDetail = () => {
         });
 
         if (response.ok) {
-          order = await response.json();
+          const resp = await response.json();
+          // The edge function now returns the Razorpay order plus the public key id (key_id)
+          order = resp;
+
+          // If the backend returned a key_id, prefer using it to avoid checkout key mismatches
+          if (resp.key_id && resp.key_id !== RAZORPAY_KEY_ID) {
+            console.warn('Razorpay public key from backend differs from frontend env. Using backend key for checkout.', { frontend: RAZORPAY_KEY_ID, backend: resp.key_id });
+          }
         } else {
+          const text = await response.text();
+          console.warn('Backend order creation failed:', response.status, text);
           throw new Error('Backend order creation failed');
         }
       } catch (backendError) {
@@ -257,7 +266,8 @@ const DatasetDetail = () => {
       // Return promise for Razorpay payment
       return new Promise((resolve, reject) => {
         const options = {
-          key: RAZORPAY_KEY_ID,
+          // prefer backend-provided key_id if present on the returned order
+          key: order.key_id || RAZORPAY_KEY_ID,
           amount: order.amount,
           currency: order.currency || "INR",
           name: "Dataverse Market",
@@ -607,6 +617,24 @@ const DatasetDetail = () => {
                 {dataset.name}
               </h1>
               <p className="text-gray-300 text-lg leading-relaxed">{dataset.description}</p>
+              
+              {/* Quality Score Badge */}
+              {dataset.quality_score !== null && dataset.quality_score !== undefined && (
+                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg border border-green-500/30 mt-4">
+                  <div className="flex-1">
+                    <div className="text-sm text-green-300 font-semibold">Quality Assessment</div>
+                    <div className="flex items-center gap-3 mt-2">
+                      <div className="text-3xl font-bold text-green-400">{Math.round(dataset.quality_score)}%</div>
+                      <div>
+                        <div className="text-lg font-semibold text-green-300">{dataset.quality_label || 'Good'}</div>
+                        {dataset.suggested_price && (
+                          <div className="text-sm text-green-200">Suggested: ₹{dataset.suggested_price}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Metadata */}
@@ -721,6 +749,20 @@ const DatasetDetail = () => {
             <div className="bg-gray-800/30 rounded-xl border border-gray-700 p-6">
               <h3 className="text-xl font-semibold mb-4 text-purple-300">Dataset Information</h3>
               <div className="space-y-3">
+                {dataset.quality_score !== null && dataset.quality_score !== undefined && (
+                  <>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                      <span className="text-gray-400">Quality Score</span>
+                      <span className="text-white font-medium">{Math.round(dataset.quality_score)}% - {dataset.quality_label || 'Good'}</span>
+                    </div>
+                    {dataset.suggested_price && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                        <span className="text-gray-400">Suggested Price</span>
+                        <span className="text-white font-medium">₹{dataset.suggested_price}</span>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="flex justify-between items-center py-2 border-b border-gray-700">
                   <span className="text-gray-400">Total Records</span>
                   <span className="text-white font-medium">{dataset.total_records || 'N/A'}</span>

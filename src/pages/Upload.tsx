@@ -234,7 +234,7 @@ const Upload = () => {
       }
 
       // Step 3: Prepare metadata for Supabase
-      const datasetMetadata: DatasetMetadata = {
+      const datasetMetadata: DatasetMetadata & any = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
@@ -251,6 +251,15 @@ const Upload = () => {
         status: 'active'
       };
 
+      // If analyzer provided context, attach score/label/suggestedPrice to metadata
+      if (datasetContext) {
+        if (datasetContext.qualityScore !== undefined) datasetMetadata.quality_score = datasetContext.qualityScore;
+        if (datasetContext.qualityLabel !== undefined) datasetMetadata.quality_label = datasetContext.qualityLabel;
+        if (datasetContext.suggestedPrice !== undefined) datasetMetadata.suggested_price = datasetContext.suggestedPrice;
+        // Also preserve analyzer preview data if present
+        if (datasetContext.previewData && !datasetMetadata.preview_data) datasetMetadata.preview_data = datasetContext.previewData;
+      }
+
       console.log('Saving to Supabase...', datasetMetadata);
 
       // Step 4: Insert into Supabase
@@ -265,6 +274,13 @@ const Upload = () => {
       }
 
       console.log('Successfully saved to Supabase:', data);
+
+      // Clear analyzer datasetInfo so it doesn't persist to other uploads
+      try {
+        localStorage.removeItem('datasetInfo');
+      } catch (e) {
+        // ignore
+      }
 
       // Success toast
       toast({
@@ -492,7 +508,7 @@ const Upload = () => {
               {/* Price and Category */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price" className="text-white">Price (ETH) *</Label>
+                  <Label htmlFor="price" className="text-white">Price (INR) *</Label>
                   <Input
                     id="price"
                     type="number"

@@ -158,7 +158,7 @@ const Marketplace = () => {
 
       const { data, error } = await supabase
         .from('datasets')
-        .select('*, preview_image_hash');
+        .select('*, preview_image_hash, quality_score, quality_label, suggested_price');
 
       if (error) {
         setError(error.message);
@@ -401,6 +401,21 @@ const Marketplace = () => {
 
                       {/* Enhanced Meta Information */}
                       <div className="space-y-3 text-sm">
+                        {/* Quality Score Display */}
+                        {dataset.quality_score !== null && dataset.quality_score !== undefined && (
+                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg border border-green-500/30">
+                            <span className="flex items-center text-green-300 font-medium">
+                              ⭐ Quality Score
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <div className="text-lg font-bold text-green-400">{Math.round(dataset.quality_score)}%</div>
+                              <div className="text-xs px-2 py-1 bg-green-500/30 text-green-300 rounded font-semibold">
+                                {dataset.quality_label || 'Good'}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between p-3 bg-black/20 rounded-lg">
                           <span className="flex items-center text-gray-300">
                             <User className="w-4 h-4 mr-2 text-purple-400" />

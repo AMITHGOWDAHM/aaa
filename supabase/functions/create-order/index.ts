@@ -177,8 +177,11 @@ serve(async (req: Request) => {
 
     console.log('=== CREATE ORDER FUNCTION COMPLETED SUCCESSFULLY ===');
 
+    // Return order result and include the public key id used to create the order
+    const safeResult = { ...orderResult, key_id: razorpayKeyId };
+
     return new Response(
-      JSON.stringify(orderResult),
+      JSON.stringify(safeResult),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
