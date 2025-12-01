@@ -59,6 +59,9 @@ const Upload = () => {
 
   const categories = ['Business', 'Science', 'Finance', 'Technology', 'Healthcare', 'Education', 'Other'];
 
+  // USD to INR conversion rate
+  const USD_TO_INR = 83;
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -100,7 +103,9 @@ const Upload = () => {
         setFormData(prev => ({ ...prev, name }));
       }
       if (info.suggestedPrice !== undefined && info.suggestedPrice !== null) {
-        setFormData(prev => ({ ...prev, price: String(info.suggestedPrice) }));
+        // Convert suggested price from USD to INR
+        const priceInINR = Math.round(info.suggestedPrice * USD_TO_INR);
+        setFormData(prev => ({ ...prev, price: String(priceInINR) }));
       }
       if (info.previewData) setPreviewData(info.previewData);
       if (info.priceLocked) setPriceLocked(true);
@@ -371,7 +376,7 @@ const Upload = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-gray-200">Suggested Price</div>
-                      <div className="text-2xl font-bold">{datasetContext.suggestedPrice ?? '—'}</div>
+                      <div className="text-2xl font-bold">₹{Math.round((datasetContext.suggestedPrice || 0) * USD_TO_INR)}</div>
                       {priceLocked && <div className="text-xs text-yellow-200">Price locked by Analyzer</div>}
                     </div>
                   </div>
