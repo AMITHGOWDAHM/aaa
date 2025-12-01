@@ -1,5 +1,9 @@
 npm i 
 
+
+ Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
+node server.js
+
 add env files 
 
 

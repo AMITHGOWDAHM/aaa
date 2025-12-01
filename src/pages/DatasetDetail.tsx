@@ -212,7 +212,7 @@ const DatasetDetail = () => {
   // Fixed Razorpay payment function
   async function processRazorpayPayment(amount, datasetId) {
     try {
-      console.log('Starting Razorpay payment process...');
+      console.log('Starting Razorpay payment process for amount (INR):', amount, 'dataset:', datasetId);
       
       // Load Razorpay script first
       const scriptLoaded = await loadRazorpayScript();
@@ -224,51 +224,51 @@ const DatasetDetail = () => {
         throw new Error("Razorpay not available after script load");
       }
 
-      // Create order (using mock for now)
+      // Create order from backend
       let order;
       try {
-        // Try to use your backend first
-        const response = await fetch(`${supabaseUrl}/functions/v1/create-order`, {
+        // Call local backend (has proper CORS and Razorpay integration)
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        console.log('Calling backend at:', BACKEND_URL, '/api/create-order');
+        
+        const response = await fetch(`${BACKEND_URL}/api/create-order`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
-            amount: Math.round(amount * 100),
+            amount: Math.round(amount * 100), // Convert INR to paise
             currency: "INR",
             dataset_id: datasetId,
           }),
         });
 
-        if (response.ok) {
-          const resp = await response.json();
-          // The edge function now returns the Razorpay order plus the public key id (key_id)
-          order = resp;
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Backend error response:', response.status, errorText);
+          throw new Error(`Backend returned ${response.status}: ${errorText}`);
+        }
 
-          // If the backend returned a key_id, prefer using it to avoid checkout key mismatches
-          if (resp.key_id && resp.key_id !== RAZORPAY_KEY_ID) {
-            console.warn('Razorpay public key from backend differs from frontend env. Using backend key for checkout.', { frontend: RAZORPAY_KEY_ID, backend: resp.key_id });
-          }
-        } else {
-          const text = await response.text();
-          console.warn('Backend order creation failed:', response.status, text);
-          throw new Error('Backend order creation failed');
+        const orderData = await response.json();
+        console.log('Backend order response:', orderData);
+        order = orderData;
+
+        // Validate order has required fields
+        if (!order.id || !order.amount || !order.key_id) {
+          throw new Error('Backend order missing required fields: ' + JSON.stringify(order));
         }
       } catch (backendError) {
-        console.warn('Backend order creation failed, using mock order:', backendError);
-        // Fallback to mock order
-        order = await createRazorpayOrder(amount, datasetId);
+        console.error('Backend order creation failed:', backendError);
+        throw backendError; // Don't fall back to mock - let the error propagate
       }
 
-      console.log('Order created:', order);
+      console.log('Order created successfully:', order.id);
 
       // Return promise for Razorpay payment
       return new Promise((resolve, reject) => {
         const options = {
-          // prefer backend-provided key_id if present on the returned order
-          key: order.key_id || RAZORPAY_KEY_ID,
-          amount: order.amount,
+          key: order.key_id, // Use backend-provided key
+          amount: order.amount, // Amount in paise
           currency: order.currency || "INR",
           name: "Dataverse Market",
           description: `Purchase: ${dataset?.name || 'Dataset'}`,

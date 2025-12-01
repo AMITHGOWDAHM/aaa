@@ -48,47 +48,34 @@ app.post('/api/create-order', async (req, res) => {
 
     // Validate input
     if (!amount || amount <= 0) {
+      console.error('Invalid amount:', amount);
       return res.status(400).json({
         error: 'Invalid amount',
         received: amount
       });
     }
 
-    if (!dataset_id) {
-      return res.status(400).json({
-        error: 'Dataset ID is required'
-      });
-    }
-
     // Check if Razorpay is properly configured
-    if (!process.env.RAZORPAY_KEY_SECRET) {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      console.error('Razorpay not configured - missing KEY_ID or KEY_SECRET');
       return res.status(500).json({
-        error: 'Razorpay not configured properly'
-      });
-    }
-
-    // Fetch dataset details from Supabase
-    const { data: dataset, error: datasetError } = await supabase
-      .from('datasets')
-      .select('*')
-      .eq('id', dataset_id)
-      .single();
-
-    if (datasetError || !dataset) {
-      return res.status(404).json({
-        error: 'Dataset not found',
-        details: datasetError
+        error: 'Razorpay not configured properly',
+        has_key_id: !!process.env.RAZORPAY_KEY_ID,
+        has_key_secret: !!process.env.RAZORPAY_KEY_SECRET
       });
     }
 
     // Create Razorpay order
+    // Generate receipt with max 40 chars (Razorpay requirement)
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+    const receipt = `rcpt_${dataset_id || 'unk'}_${timestamp}`.slice(0, 40);
+    
     const options = {
-      amount: Math.round(amount * 100), // Convert to paise
+      amount: amount, // Already in paise from frontend
       currency: currency,
-      receipt: `receipt_${dataset_id}_${Date.now()}`,
+      receipt: receipt, // Max 40 characters
       notes: {
-        dataset_id: dataset_id.toString(),
-        dataset_name: dataset.name,
+        dataset_id: dataset_id?.toString() || 'unknown',
         buyer_address: buyer_address || 'unknown',
         created_at: new Date().toISOString()
       }
@@ -98,7 +85,7 @@ app.post('/api/create-order', async (req, res) => {
 
     const order = await razorpay.orders.create(options);
     
-    console.log('Razorpay order created:', order);
+    console.log('Razorpay order created successfully:', order.id);
 
     res.json({
       id: order.id,
@@ -106,7 +93,8 @@ app.post('/api/create-order', async (req, res) => {
       currency: order.currency,
       receipt: order.receipt,
       status: order.status,
-      created_at: order.created_at
+      created_at: order.created_at,
+      key_id: process.env.RAZORPAY_KEY_ID
     });
 
   } catch (error) {
